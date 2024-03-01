@@ -100,9 +100,10 @@ void Packer::Pack(vector<Bitmap*>& bitmaps, bool verbose, bool unique, bool rota
         height /= 2;
 }
 
-void Packer::SavePng(const string& file)
+void Packer::SavePng(const string& file, uint32_t* palette, int paletteSize)
 {
-    Bitmap bitmap(width, height);
+    Bitmap bitmap(width, height, palette, paletteSize);
+
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
         if (points[i].dupID < 0)

@@ -35,120 +35,180 @@
 using namespace std;
 
 Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose)
-: name(name)
+: name(name), palette(NULL), paletteSize(0)
 {
-    //Load the png file
+    int result;
+    LodePNGState state;
+    unsigned char* png = NULL;
+    size_t size = 0;
     unsigned char* pdata;
     unsigned int pw, ph;
-    if (lodepng_decode32_file(&pdata, &pw, &ph, file.data()))
+
+    lodepng_state_init(&state);
+
+    if (lodepng_load_file(&png, &size, file.data()))
     {
         cerr << "failed to load png: " << file << endl;
-        exit(EXIT_FAILURE);
+        ::exit(EXIT_FAILURE);
     }
+
+    result = lodepng_decode(&pdata, &pw, &ph, &state, png, size);
+    
+    if (result)
+    {
+        cerr << "failed to load png: " << file << " (" << lodepng_error_text(result) << ") " << endl;
+        ::exit(EXIT_FAILURE);
+    }
+
     int w = static_cast<int>(pw);
     int h = static_cast<int>(ph);
-    uint32_t* pixels = reinterpret_cast<uint32_t*>(pdata);
 
-    
-    //Premultiply all the pixels by their alpha
-    if (premultiply)
+    LodePNGColorMode* color = &state.info_png.color;
+
+    if(color->colortype == LCT_PALETTE)
     {
-        int count = w * h;
-        uint32_t c,a,r,g,b;
-        float m;
-        for (int i = 0; i < count; ++i)
+        width = w;
+        height = h;
+        frameX = 0;
+        frameY = 0;
+        frameW = w;
+        frameH = h;
+
+        paletteSize = color->palettesize;
+        palette = reinterpret_cast<uint32_t*>(calloc(paletteSize, sizeof(uint32_t)));
+        
+        memcpy(palette, color->palette, paletteSize * sizeof(uint32_t));
+        
+        if (color->bitdepth == 4)
         {
-            c = pixels[i];
-            a = c >> 24;
-            m = static_cast<float>(a) / 255.0f;
-            r = static_cast<uint32_t>((c & 0xff) * m);
-            g = static_cast<uint32_t>(((c >> 8) & 0xff) * m);
-            b = static_cast<uint32_t>(((c >> 16) & 0xff) * m);
-            pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
+            LodePNGColorMode mode = lodepng_color_mode_make(LCT_PALETTE, 8);
+            mode.palettesize = paletteSize;
+            mode.palette = color->palette;
+
+            int bpp = lodepng_get_bpp(&mode);
+            data = reinterpret_cast<uint8_t*>(calloc((w * h * bpp + 7) / 8, sizeof(uint8_t)));
+
+            lodepng_convert(data, pdata, &mode, &state.info_raw, w, h);
         }
-    }
-    
-    //TODO: skip if all corners contain opaque pixels?
-    
-    //Get pixel bounds
-    int minX = w - 1;
-    int minY = h - 1;
-    int maxX = 0;
-    int maxY = 0;
-    if (trim)
-    {
-        uint32_t p;
-        for (int y = 0; y < h; ++y)
+        else if (color->bitdepth == 8)
         {
-            for (int x = 0; x < w; ++x)
+            data = reinterpret_cast<uint8_t*>(calloc(w * h, sizeof(uint8_t)));
+            memcpy(data, pdata, w * h);
+        }
+
+        free(png);
+        lodepng_state_cleanup(&state);
+    }
+    else
+    {
+        data = reinterpret_cast<uint8_t*>(calloc(w * h, sizeof(uint32_t)));
+        uint32_t* pixels = reinterpret_cast<uint32_t*>(pdata);
+
+        //Premultiply all the pixels by their alpha
+        if (premultiply)
+        {
+            int count = w * h;
+            uint32_t c,a,r,g,b;
+            float m;
+            for (int i = 0; i < count; ++i)
             {
-                p = pixels[y * w + x];
-                if ((p >> 24) > 0)
-                {
-                    minX = min(x, minX);
-                    minY = min(y, minY);
-                    maxX = max(x, maxX);
-                    maxY = max(y, maxY);
-                }
+                c = pixels[i];
+                a = c >> 24;
+                m = static_cast<float>(a) / 255.0f;
+                r = static_cast<uint32_t>((c & 0xff) * m);
+                g = static_cast<uint32_t>(((c >> 8) & 0xff) * m);
+                b = static_cast<uint32_t>(((c >> 16) & 0xff) * m);
+                pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
             }
         }
-        if (maxX < minX || maxY < minY)
+        //TODO: skip if all corners contain opaque pixels?
+        
+        //Get pixel bounds
+        int minX = w - 1;
+        int minY = h - 1;
+        int maxX = 0;
+        int maxY = 0;
+        if (trim)
+        {
+            uint32_t p;
+            for (int y = 0; y < h; ++y)
+            {
+                for (int x = 0; x < w; ++x)
+                {
+                    p = pixels[y * w + x];
+                    if ((p >> 24) > 0)
+                    {
+                        minX = min(x, minX);
+                        minY = min(y, minY);
+                        maxX = max(x, maxX);
+                        maxY = max(y, maxY);
+                    }
+                }
+            }
+            if (maxX < minX || maxY < minY)
+            {
+                minX = 0;
+                minY = 0;
+                maxX = w - 1;
+                maxY = h - 1;
+                if (verbose) cout << "image is completely transparent: " << file << endl;
+            }
+        }
+        else
         {
             minX = 0;
             minY = 0;
             maxX = w - 1;
             maxY = h - 1;
-            if (verbose) cout << "image is completely transparent: " << file << endl;
         }
-    }
-    else
-    {
-        minX = 0;
-        minY = 0;
-        maxX = w - 1;
-        maxY = h - 1;
-    }
 
-    //Calculate our trimmed size
-    width = (maxX - minX) + 1;
-    height = (maxY - minY) + 1;
-    frameW = w;
-    frameH = h;
-    
-    if (width == w && height == h)
-    {
-        //If we aren't trimmed, use the loaded image data
-        frameX = 0;
-        frameY = 0;
-        data = pixels;
-    }
-    else
-    {
-        //Create the trimmed image data
-        data = reinterpret_cast<uint32_t*>(calloc(width * height, sizeof(uint32_t)));
-        frameX = -minX;
-        frameY = -minY;
+        //Calculate our trimmed size
+        width = (maxX - minX) + 1;
+        height = (maxY - minY) + 1;
+        frameW = w;
+        frameH = h;
         
-        //Copy trimmed pixels over to the trimmed pixel array
-        for (int y = minY; y <= maxY; ++y)
-            for (int x = minX; x <= maxX; ++x)
-                data[(y - minY) * width + (x - minX)] = pixels[y * w + x];
-        
-        //Free the untrimmed pixels
-        free(pixels);
+        if (width == w && height == h)
+        {
+            //If we aren't trimmed, use the loaded image data
+            frameX = 0;
+            frameY = 0;
+        }
+        else
+        {
+            //Create the trimmed image data
+            data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint32_t)));
+            uint32_t* pixels = reinterpret_cast<uint32_t*>(pdata);
+
+            frameX = -minX;
+            frameY = -minY;
+            
+            //Copy trimmed pixels over to the trimmed pixel array
+            for (int y = minY; y <= maxY; ++y)
+                for (int x = minX; x <= maxX; ++x)
+                    pixels[(y - minY) * width + (x - minX)] = pixels[y * w + x];
+            
+            //Free the untrimmed pixels
+            free(pdata);
+        }
     }
 
     //Generate a hash for the bitmap
     hashValue = 0;
     HashCombine(hashValue, static_cast<size_t>(width));
     HashCombine(hashValue, static_cast<size_t>(height));
-    HashData(hashValue, reinterpret_cast<char*>(data), sizeof(uint32_t) * width * height);
+    HashData(hashValue, reinterpret_cast<char*>(data), (paletteSize > 0 ? sizeof(uint8_t) : sizeof(uint32_t)) * width * height);
+
+    free(pdata);
 }
 
-Bitmap::Bitmap(int width, int height)
-: width(width), height(height)
+Bitmap::Bitmap(int width, int height, uint32_t* palette, int paletteSize)
+: width(width), height(height), palette(palette), paletteSize(paletteSize)
 {
-    data = reinterpret_cast<uint32_t*>(calloc(width * height, sizeof(uint32_t)));
+    if (paletteSize > 0)
+        data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint8_t)));
+    else
+        data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint32_t)));
 }
 
 Bitmap::~Bitmap()
@@ -158,34 +218,112 @@ Bitmap::~Bitmap()
 
 void Bitmap::SaveAs(const string& file)
 {
-    unsigned char* pdata = reinterpret_cast<unsigned char*>(data);
-    unsigned int pw = static_cast<unsigned int>(width);
-    unsigned int ph = static_cast<unsigned int>(height);
-    if (lodepng_encode32_file(file.data(), pdata, pw, ph))
+    if (paletteSize > 0)
     {
-        cout << "failed to save png: " << file << endl;
-        exit(EXIT_FAILURE);
+        int result;
+
+        unsigned int pw = static_cast<unsigned int>(width);
+        unsigned int ph = static_cast<unsigned int>(height);
+
+        LodePNGState state;
+
+        lodepng_state_init(&state);
+
+        for (int i = 0; i < paletteSize; i++)
+        {
+            lodepng_palette_add(&state.info_png.color, (palette[i] >> 0) & 0xff, (palette[i] >> 8) & 0xff, (palette[i] >> 16) & 0xff, 0xff);
+            lodepng_palette_add(&state.info_raw, (palette[i] >> 0) & 0xff, (palette[i] >> 8) & 0xff, (palette[i] >> 16) & 0xff, 0xff);
+       }
+
+        state.info_png.color.colortype = LCT_PALETTE;
+        state.info_png.color.bitdepth = 8;
+        state.info_raw.colortype = LCT_PALETTE;
+        state.info_raw.bitdepth = 8;
+        state.encoder.auto_convert = 0;
+
+        size_t pngSize;
+        result = lodepng_encode(&data, &pngSize, data, pw, ph, &state);
+
+        if (result)
+        {
+            cerr << "failed to encode png: " << file << " (" << lodepng_error_text(result) << ") " << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (lodepng_save_file(data, pngSize, file.data())) {
+            cout << "failed to save png: " << file << endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        unsigned int pw = static_cast<unsigned int>(width);
+        unsigned int ph = static_cast<unsigned int>(height);
+
+        if (lodepng_encode32_file(file.data(), data, pw, ph))
+        {
+            cout << "failed to save png: " << file << endl;
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
 void Bitmap::CopyPixels(const Bitmap* src, int tx, int ty)
 {
-    for (int y = 0; y < src->height; ++y)
-        for (int x = 0; x < src->width; ++x)
-            data[(ty + y) * width + (tx + x)] = src->data[y * src->width + x];
+    if (paletteSize > 0)
+    {
+        if (src->paletteSize == 0)
+            return;
+
+        for (int y = 0; y < src->height; ++y)
+            for (int x = 0; x < src->width; ++x)
+                data[(ty + y) * width + (tx + x)] = src->data[y * src->width + x];
+    }
+    else
+    {
+        if (src->paletteSize > 0)
+            return;
+
+        uint32_t* srcPixels = reinterpret_cast<uint32_t*>(src->data);
+        uint32_t* dstPixels = reinterpret_cast<uint32_t*>(data);
+
+        for (int y = 0; y < src->height; ++y)
+            for (int x = 0; x < src->width; ++x)
+                dstPixels[(ty + y) * width + (tx + x)] = srcPixels[y * src->width + x];
+    }
 }
 
 void Bitmap::CopyPixelsRot(const Bitmap* src, int tx, int ty)
 {
-    int r = src->height - 1;
-    for (int y = 0; y < src->width; ++y)
-        for (int x = 0; x < src->height; ++x)
-            data[(ty + y) * width + (tx + x)] = src->data[(r - x) * src->width + y];
+    if (paletteSize > 0)
+    {
+        if (src->paletteSize == 0)
+            return;
+
+        int r = src->height - 1;
+        for (int y = 0; y < src->width; ++y)
+            for (int x = 0; x < src->height; ++x)
+                data[(ty + y) * width + (tx + x)] = src->data[(r - x) * src->width + y];
+    }
+    else
+    {
+        if (src->paletteSize > 0)
+            return;
+
+        uint32_t* srcPixels = reinterpret_cast<uint32_t*>(src->data);
+        uint32_t* dstPixels = reinterpret_cast<uint32_t*>(data);
+
+        int r = src->height - 1;
+        for (int y = 0; y < src->width; ++y)
+            for (int x = 0; x < src->height; ++x)
+                dstPixels[(ty + y) * width + (tx + x)] = srcPixels[(r - x) * src->width + y];
+    }
 }
 
 bool Bitmap::Equals(const Bitmap* other) const
 {
-    if (width == other->width && height == other->height)
-        return memcmp(data, other->data, sizeof(uint32_t) * width * height) == 0;
-    return false;
+    if (width != other->width || height != other->height)
+        return false;
+
+    return memcmp(data, other->data, (paletteSize > 0 ? sizeof(uint8_t) : sizeof(uint32_t)) * width * height) == 0;
 }

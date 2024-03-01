@@ -1,4 +1,4 @@
-# crunch v0.12
+# crunch
 
 This is a command line tool that will pack a bunch of images into a single, larger image. It was designed for [Celeste](http://www.celestegame.com/), but could be very helpful for other games.
 
@@ -42,11 +42,11 @@ There is also an option to use a binary format instead of xml.
 
 ## Usage
 
-`crunch [OUTPUT] [INPUT1,INPUT2,INPUT3...] [OPTIONS...]`
+`crunch [options] <inputFilename1,inputFilename2,inputFilename3...> <outputFilename> [paletteFilename]`
 
 For example...
 
-`crunch bin/atlases/atlas assets/characters,assets/tiles -p -t -v -u -r -j`
+`crunch -a -t -v -u -r bin/atlases/atlas assets/characters,assets/tiles`
 
 This will output the following files:
 
@@ -58,26 +58,43 @@ bin/atlases/atlas.hash
 
 ## Options
 
-| option          | alias           | description     |
-| --------------- | --------------- | --------------- |
-| `-d`            | `--default`     | use default settings (`-x -p -t -u`) |
-| `-x`            | `--xml`         | saves the atlas data as a `.xml` file |
-| `-b`            | `--binary`      | saves the atlas data as a `.bin` file |
-| `-j`            | `--json`        | saves the atlas data as a `.json` file |
-| `-p`            | `--premultiply` | premultiplies the pixels of the bitmaps by their alpha channel |
-| `-t`            | `--trim`        | trims excess transparency off the bitmaps |
-| `-v`            | `--verbose`     | print to the debug console as the packer works |
-| `-f`            | `--force`       | ignore caching, forcing the packer to repack |
-| `-u`            | `--unique`      | remove duplicate bitmaps from the atlas |
-| `-r`            | `--rotate`      | enabled rotating bitmaps 90 degrees clockwise when packing |
-| `-s#`           | `--size#`       | max atlas size (`#` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
-| `-w#`           | `--width#`      | max atlas width (overrides `--size`) (`#` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
-| `-h#`           | `--height#`     | max atlas height (overrides `--size`) (`#` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
-| `-p#`           | `--pad#`        | padding between images (`#` can be from `0` to `16`) |
-| `-bs%`          | `--binstr%`     | string type in binary format (`%` can be: `n` - null-termainated, `p` - prefixed (int16), `7` - 7-bit prefixed) |
-| `-tm`           | `--time`        | use file's last write time instead of its contents for hashing |
-| `-sp`           | `--split`       | split output textures by subdirectories |
-| `-nz`           | `--nozero`      | if there's only one packed texture, then zero at the end of its name will be omitted (ex. `images0.png` -> `images.png`) |
+    "   -f --format <xml|bin|json>  saves the atlas data in xml, binary or json format\n"
+    "   -a --alpha                  premultiplies the pixels of the bitmaps by their alpha channel\n"
+    "   -t --trim                   trims excess transparency off the bitmaps\n"
+    "   -v --verbose                print to the debug console as the packer works\n"
+    "   -i --ignore                 ignore the hash, forcing the packer to repack\n"
+    "   -u --unique                 remove duplicate bitmaps from the atlas\n"
+    "   -r --rotate                 enabled rotating bitmaps 90 degrees clockwise when packing\n"
+    "   -s --size <n>               max atlas size (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
+    "   -w --width <n>              max atlas width (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
+    "   -h --height <n>             max atlas height (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
+    "   -p --padding <n>            padding between images (<n> can be from 0 to 16)\n"
+    "   -b --binstr <n|p|7>         string type in binary format (n: null-terminated, p: prefixed (int16), 7: 7-bit prefixed)\n"
+    "   -l --last                   use file's last write time instead of its content for hashing\n"
+    "   -d --dirs                   split output textures by subdirectories\n"
+    "   -n --nozero                 if there's ony one packed texture, then zero at the end of its name will be omitted (ex. images0.png -> images.png)\n"
+
+| option              | alias                     | description     |
+| ------------------- | ------------------------- | --------------- |
+| `-f <xml\|bin\|json>` | `--format <xml\|bin\|json>` | saves the atlas data in xml, binary or json format |
+| `-a`                | `--alpha`                 | premultiplies the pixels of the bitmaps by their alpha channel |
+| `-t`                | `--trim`                  | trims excess transparency off the bitmaps |
+| `-v`                | `--verbose`               | print to the debug console as the packer works |
+| `-i`                | `--ignore`                | ignore caching, forcing the packer to repack |
+| `-u`                | `--unique`                | remove duplicate bitmaps from the atlas |
+| `-r`                | `--rotate`                | enabled rotating bitmaps 90 degrees clockwise when packing |
+| `-s <n>`            | `--size <n>`              | max atlas size (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
+| `-w <n>`            | `--width <n>`             | max atlas width (overrides `--size`) (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
+| `-h <n>`            | `--height <n>`            | max atlas height (overrides `--size`) (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
+| `-p <n>`            | `--padding <n>`           | padding between images (`<n>` can be from `0` to `16`) |
+| `-b <n\|p\|7>`        | `--binstr <n\|p\|7>`        | string type in binary format (`n`: null-terminated, `p`: prefixed (int16), `7`: 7-bit prefixed) |
+| `-l`                | `--last`                  | use file's last write time instead of its contents for hashing |
+| `-d`                | `--dirs`                  | split output textures by subdirectories |
+| `-n`                | `--nozero`                | if there's only one packed texture, then zero at the end of its name will be omitted (ex. `images0.png` -> `images.png`) |
+
+## Palette Format
+
+For indexed png's the supported palette formats supported are act, jasc, mspal, gimp, paint.net and png.
 
 ## Binary Format
 
@@ -104,11 +121,11 @@ crch (0x68637263 in hex or 1751347811 in decimal (little endian))
 
 ## Splitting
 
-If `--split` (or `-sp`) is enabled output textures will be split by subdirectories.
+If `--dirs` (or `-d`) is enabled output textures will be split by subdirectories.
 
 For example:
 
-`crunch bin/images images -b -sp` with input images
+`crunch -b -d bin/images images` with input images
 
 ```text
 images/
@@ -149,32 +166,4 @@ But there're some limitations:
 ```text
 cd linux/
 make
-```
-
-## License
-
-Unless otherwise specified in a source file, everything in this project falls under the following license:
-
-```text
-MIT License
-
-Copyright (c) 2017 Chevy Ray Johnston
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```

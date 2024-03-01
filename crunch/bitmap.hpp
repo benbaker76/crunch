@@ -42,10 +42,13 @@ struct Bitmap
     int frameY;
     int frameW;
     int frameH;
-    uint32_t* data;
+    uint8_t* data;
+    uint32_t* palette;
     size_t hashValue;
+    int paletteSize;
+
     Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose);
-    Bitmap(int width, int height);
+    Bitmap(int width, int height, uint32_t* palette, int paletteSize);
     ~Bitmap();
     void SaveAs(const string& file);
     void CopyPixels(const Bitmap* src, int tx, int ty);
