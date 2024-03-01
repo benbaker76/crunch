@@ -58,22 +58,6 @@ bin/atlases/atlas.hash
 
 ## Options
 
-    "   -f --format <xml|bin|json>  saves the atlas data in xml, binary or json format\n"
-    "   -a --alpha                  premultiplies the pixels of the bitmaps by their alpha channel\n"
-    "   -t --trim                   trims excess transparency off the bitmaps\n"
-    "   -v --verbose                print to the debug console as the packer works\n"
-    "   -i --ignore                 ignore the hash, forcing the packer to repack\n"
-    "   -u --unique                 remove duplicate bitmaps from the atlas\n"
-    "   -r --rotate                 enabled rotating bitmaps 90 degrees clockwise when packing\n"
-    "   -s --size <n>               max atlas size (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
-    "   -w --width <n>              max atlas width (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
-    "   -h --height <n>             max atlas height (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
-    "   -p --padding <n>            padding between images (<n> can be from 0 to 16)\n"
-    "   -b --binstr <n|p|7>         string type in binary format (n: null-terminated, p: prefixed (int16), 7: 7-bit prefixed)\n"
-    "   -l --last                   use file's last write time instead of its content for hashing\n"
-    "   -d --dirs                   split output textures by subdirectories\n"
-    "   -n --nozero                 if there's ony one packed texture, then zero at the end of its name will be omitted (ex. images0.png -> images.png)\n"
-
 | option              | alias                     | description     |
 | ------------------- | ------------------------- | --------------- |
 | `-f <xml\|bin\|json>` | `--format <xml\|bin\|json>` | saves the atlas data in xml, binary or json format |
