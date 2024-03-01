@@ -46,7 +46,7 @@ There is also an option to use a binary format instead of xml.
 
 For example...
 
-`crunch -a -t -v -u -r bin/atlases/atlas assets/characters,assets/tiles`
+`crunch -a -t -v -u -r assets/characters,assets/tiles bin/atlases/atlas`
 
 This will output the following files:
 
