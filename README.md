@@ -103,6 +103,7 @@ crch (0x68637263 in hex or 1751347811 in decimal (little endian))
         [int16] img_frame_width     (if --trim enabled)
         [int16] img_frame_height    (if --trim enabled)
         [byte] img_rotated          (if --rotate enabled)
+        [byte] img_slot
 ```
 
 ## Splitting

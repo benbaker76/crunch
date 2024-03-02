@@ -129,7 +129,8 @@ static const char *helpMessage =
     "      [int16] img_frame_y         (if --trim enabled)\n"
     "      [int16] img_frame_width     (if --trim enabled)\n"
     "      [int16] img_frame_height    (if --trim enabled)\n"
-    "      [byte] img_rotated          (if --rotate enabled)";
+    "      [byte] img_rotated          (if --rotate enabled)\n"
+    "      [byte] img_slot";
 
 static void SplitFileName(const string &path, string *dir, string *name, string *ext)
 {
