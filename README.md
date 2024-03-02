@@ -15,6 +15,8 @@ It is designed using libraries with permissible licenses, so you are able to use
 - Remove duplicate images
 - Caching to prevent redundant builds
 - Multi-image atlas when the sprites don't fit
+- Support for indexed png's
+- Support for using palette file for indexed format (act, JASC, MS pal, GIMP, Paint.net and png)
 
 ## What does it do?
 
