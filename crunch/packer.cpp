@@ -144,13 +144,13 @@ void Packer::SaveXml(const string& name, ofstream& xml, bool trim, bool rotate)
     xml << "\t</tex>" << endl;
 }
 
-void Packer::SaveBin(const string& name, ofstream& bin, bool trim, bool rotate)
+void Packer::SaveBin(const string& name, ofstream& bin, bool trim, bool rotate, int length)
 {
-    WriteString(bin, name);
+    WriteString(bin, name, length);
     WriteShort(bin, (int16_t)bitmaps.size());
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
-        WriteString(bin, bitmaps[i]->name);
+        WriteString(bin, bitmaps[i]->name, length);
         WriteShort(bin, (int16_t)points[i].x);
         WriteShort(bin, (int16_t)points[i].y);
         WriteShort(bin, (int16_t)bitmaps[i]->width);

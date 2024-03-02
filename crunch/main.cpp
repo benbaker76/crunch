@@ -46,6 +46,8 @@ using namespace std;
 const char *version = "v0.14";
 const int binVersion = 0;
 
+#define NAME_LENGTH 16
+
 enum Format
 {
     XML,
@@ -57,7 +59,8 @@ enum StringType
 {
     NULL_TERMINATED,
     PREFIXED,
-    SEVEN_BIT_PREFIXED
+    SEVEN_BIT_PREFIXED,
+    FIXED_LENGTH
 };
 
 static struct options
@@ -104,7 +107,7 @@ static const char *helpMessage =
     "   -w --width <n>              max atlas width (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
     "   -h --height <n>             max atlas height (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
     "   -p --padding <n>            padding between images (<n> can be from 0 to 16)\n"
-    "   -b --binstr <n|p|7>         string type in binary format (n: null-terminated, p: prefixed (int16), 7: 7-bit prefixed)\n"
+    "   -b --binstr <n|p|7|f>       string type in binary format (n: null-terminated, p: prefixed (int16), 7: 7-bit prefixed, f: fixed 8 bytes)\n"
     "   -l --last                   use file's last write time instead of its content for hashing\n"
     "   -d --dirs                   split output textures by subdirectories\n"
     "   -n --nozero                 if there's ony one packed texture, then zero at the end of its name will be omitted (ex. images0.png -> images.png)\n"
@@ -249,6 +252,8 @@ static StringType GetBinStrType(const string &str)
         return PREFIXED;
     if (str == "7")
         return SEVEN_BIT_PREFIXED;
+    if (str == "f" || str == "F")
+        return FIXED_LENGTH;
     cerr << "invalid binary string type: " << str << endl;
     exit(EXIT_FAILURE);
     return NULL_TERMINATED;
@@ -436,7 +441,7 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
         }
         WriteShort(bin, (int16_t)packers.size());
         for (size_t i = 0; i < packers.size(); ++i)
-            packers[i]->SaveBin(name + (noZero ? "" : to_string(i)), bin, options.trim, options.rotate);
+            packers[i]->SaveBin(name + (noZero ? "" : to_string(i)), bin, options.trim, options.rotate, NAME_LENGTH);
         bin.close();
     }
 

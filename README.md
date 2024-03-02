@@ -73,7 +73,7 @@ bin/atlases/atlas.hash
 | `-w <n>`            | `--width <n>`             | max atlas width (overrides `--size`) (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
 | `-h <n>`            | `--height <n>`            | max atlas height (overrides `--size`) (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
 | `-p <n>`            | `--padding <n>`           | padding between images (`<n>` can be from `0` to `16`) |
-| `-b <n\|p\|7>`        | `--binstr <n\|p\|7>`        | string type in binary format (`n`: null-terminated, `p`: prefixed (int16), `7`: 7-bit prefixed) |
+| `-b <n\|p\|7\|f>`      | `--binstr <n\|p\|7\|f>`      | string type in binary format (`n`: null-terminated, `p`: prefixed (int16), `7`: 7-bit prefixed, `f`' fixed 8 bytes) |
 | `-l`                | `--last`                  | use file's last write time instead of its contents for hashing |
 | `-d`                | `--dirs`                  | split output textures by subdirectories |
 | `-n`                | `--nozero`                | if there's only one packed texture, then zero at the end of its name will be omitted (ex. `images0.png` -> `images.png`) |
@@ -89,7 +89,7 @@ crch (0x68637263 in hex or 1751347811 in decimal (little endian))
 [int16] version (current version is 0)
 [byte] --trim enabled
 [byte] --rotate enabled
-[byte] string type (0 - null-termainated, 1 - prefixed (int16), 2 - 7-bit prefixed)
+[byte] string type (0: null-termainated, 1: prefixed (int16), 2: 7-bit prefixed, 3: fixed 16 bytes)
 [int16] num_textures (below block is repeated this many times)
     [string] name
     [int16] num_images (below block is repeated this many times)

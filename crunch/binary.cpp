@@ -27,6 +27,7 @@
 #include "binary.hpp"
 #include <iostream>
 #include <cstdint>
+#include <string.h>
 
 static int type;
 
@@ -35,13 +36,14 @@ void SetStringType(int t)
     type = t;
 }
 
-void WriteString(ofstream& bin, const string& value)
+void WriteString(ofstream& bin, const string& value, int length)
 {
     switch (type)
     {
         case 0: WriteStringNullTerminated(bin, value); break;
         case 1: WriteStringPrefixed(bin, value); break;
         case 2: WriteString7BitPrefixed(bin, value); break;
+        case 3: WriteStringFixedLength(bin, value, length); break;
     }
 }
 
@@ -70,6 +72,17 @@ void WriteString7BitPrefixed(ofstream& bin, const string& value)
 
     WriteByte(bin, static_cast<uint8_t>(length));
     bin.write(value.data(), value.length());
+}
+
+void WriteStringFixedLength(ofstream& bin, const string& value, int length)
+{
+    char buffer[length];
+    memset(buffer, 0, length);
+
+    int copyLength = min(length - 1, static_cast<int>(value.length()));
+    strncpy(buffer, value.c_str(), copyLength);
+
+    bin.write(buffer, length);
 }
 
 void WriteShort(ofstream& bin, int16_t value)

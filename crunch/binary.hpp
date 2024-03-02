@@ -33,10 +33,11 @@
 using namespace std;
 
 void SetStringType(int t);
-void WriteString(ofstream& bin, const string& value);
+void WriteString(ofstream& bin, const string& value, int length);
 void WriteStringNullTerminated(ofstream &bin, const string &value);
 void WriteStringPrefixed(ofstream &bin, const string &value);
 void WriteString7BitPrefixed(ofstream &bin, const string &value);
+void WriteStringFixedLength(ofstream& bin, const string& value, int length);
 void WriteShort(ofstream &bin, int16_t value);
 void WriteByte(ofstream &bin, char value);
 string ReadString(ifstream &bin);
