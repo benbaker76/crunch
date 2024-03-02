@@ -41,10 +41,12 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
     LodePNGState state;
     unsigned char* png = NULL;
     size_t size = 0;
-    unsigned char* pdata;
+    unsigned char* buffer;
     unsigned int pw, ph;
 
     lodepng_state_init(&state);
+
+    state.decoder.color_convert = 0;
 
     if (lodepng_load_file(&png, &size, file.data()))
     {
@@ -52,7 +54,7 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
         ::exit(EXIT_FAILURE);
     }
 
-    result = lodepng_decode(&pdata, &pw, &ph, &state, png, size);
+    result = lodepng_decode(&buffer, &pw, &ph, &state, png, size);
     
     if (result)
     {
@@ -64,16 +66,10 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
     int h = static_cast<int>(ph);
 
     LodePNGColorMode* color = &state.info_png.color;
+    bool isIndexed = (color->colortype == LCT_PALETTE);
 
-    if(color->colortype == LCT_PALETTE)
+    if(isIndexed)
     {
-        width = w;
-        height = h;
-        frameX = 0;
-        frameY = 0;
-        frameW = w;
-        frameH = h;
-
         paletteSize = color->palettesize;
         palette = reinterpret_cast<uint32_t*>(calloc(paletteSize, sizeof(uint32_t)));
         
@@ -88,12 +84,10 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
             int bpp = lodepng_get_bpp(&mode);
             data = reinterpret_cast<uint8_t*>(calloc((w * h * bpp + 7) / 8, sizeof(uint8_t)));
 
-            lodepng_convert(data, pdata, &mode, &state.info_raw, w, h);
-        }
-        else if (color->bitdepth == 8)
-        {
-            data = reinterpret_cast<uint8_t*>(calloc(w * h, sizeof(uint8_t)));
-            memcpy(data, pdata, w * h);
+            lodepng_convert(data, buffer, &mode, &state.info_raw, w, h);
+
+            free(buffer);
+            buffer = data;
         }
 
         free(png);
@@ -101,9 +95,6 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
     }
     else
     {
-        data = reinterpret_cast<uint8_t*>(calloc(w * h, sizeof(uint32_t)));
-        uint32_t* pixels = reinterpret_cast<uint32_t*>(pdata);
-
         //Premultiply all the pixels by their alpha
         if (premultiply)
         {
@@ -112,94 +103,103 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
             float m;
             for (int i = 0; i < count; ++i)
             {
-                c = pixels[i];
+                c = reinterpret_cast<uint32_t*>(buffer)[i];
                 a = c >> 24;
                 m = static_cast<float>(a) / 255.0f;
                 r = static_cast<uint32_t>((c & 0xff) * m);
                 g = static_cast<uint32_t>(((c >> 8) & 0xff) * m);
                 b = static_cast<uint32_t>(((c >> 16) & 0xff) * m);
-                pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
+                reinterpret_cast<uint32_t*>(buffer)[i] = (a << 24) | (b << 16) | (g << 8) | r;
             }
         }
-        //TODO: skip if all corners contain opaque pixels?
-        
-        //Get pixel bounds
-        int minX = w - 1;
-        int minY = h - 1;
-        int maxX = 0;
-        int maxY = 0;
-        if (trim)
+    }
+
+    //TODO: skip if all corners contain opaque pixels?
+
+    //Get pixel bounds
+    int minX = w - 1;
+    int minY = h - 1;
+    int maxX = 0;
+    int maxY = 0;
+    if (trim)
+    {
+        for (int y = 0; y < h; ++y)
         {
-            uint32_t p;
-            for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
             {
-                for (int x = 0; x < w; ++x)
+                int index = y * w + x;
+                uint32_t p = (isIndexed ? reinterpret_cast<uint8_t*>(buffer)[index] : reinterpret_cast<uint32_t*>(buffer)[index]);
+                uint8_t a = (isIndexed ? p != 0 : p >> 24);
+
+                if (a)
                 {
-                    p = pixels[y * w + x];
-                    if ((p >> 24) > 0)
-                    {
-                        minX = min(x, minX);
-                        minY = min(y, minY);
-                        maxX = max(x, maxX);
-                        maxY = max(y, maxY);
-                    }
+                    minX = min(x, minX);
+                    minY = min(y, minY);
+                    maxX = max(x, maxX);
+                    maxY = max(y, maxY);
                 }
             }
-            if (maxX < minX || maxY < minY)
-            {
-                minX = 0;
-                minY = 0;
-                maxX = w - 1;
-                maxY = h - 1;
-                if (verbose) cout << "image is completely transparent: " << file << endl;
-            }
         }
-        else
+        if (maxX < minX || maxY < minY)
         {
             minX = 0;
             minY = 0;
             maxX = w - 1;
             maxY = h - 1;
+            if (verbose) cout << "image is completely transparent: " << file << endl;
         }
+    }
+    else
+    {
+        minX = 0;
+        minY = 0;
+        maxX = w - 1;
+        maxY = h - 1;
+    }
 
-        //Calculate our trimmed size
-        width = (maxX - minX) + 1;
-        height = (maxY - minY) + 1;
-        frameW = w;
-        frameH = h;
+    //Calculate our trimmed size
+    width = (maxX - minX) + 1;
+    height = (maxY - minY) + 1;
+    frameW = w;
+    frameH = h;
+
+    if (width == w && height == h)
+    {
+        //If we aren't trimmed, use the loaded image data
+        frameX = 0;
+        frameY = 0;
+        data = buffer;
+    }
+    else
+    {
+        //Create the trimmed image data
+        data = reinterpret_cast<uint8_t*>(calloc(width * height, isIndexed ? sizeof(uint8_t) : sizeof(uint32_t)));
+        frameX = -minX;
+        frameY = -minY;
         
-        if (width == w && height == h)
+        //Copy trimmed pixels over to the trimmed pixel array
+        for (int y = minY; y <= maxY; ++y)
         {
-            //If we aren't trimmed, use the loaded image data
-            frameX = 0;
-            frameY = 0;
+            for (int x = minX; x <= maxX; ++x)
+            {
+                int srcIndex = y * w + x;
+                int dstIndex = (y - minY) * width + (x - minX);
+                if (isIndexed)
+                    reinterpret_cast<uint8_t*>(data)[dstIndex] = reinterpret_cast<uint8_t*>(buffer)[srcIndex];
+                else
+                    reinterpret_cast<uint32_t*>(data)[dstIndex] = reinterpret_cast<uint32_t*>(buffer)[srcIndex];
+            }
         }
-        else
-        {
-            //Create the trimmed image data
-            data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint32_t)));
-            uint32_t* pixels = reinterpret_cast<uint32_t*>(pdata);
-
-            frameX = -minX;
-            frameY = -minY;
-            
-            //Copy trimmed pixels over to the trimmed pixel array
-            for (int y = minY; y <= maxY; ++y)
-                for (int x = minX; x <= maxX; ++x)
-                    pixels[(y - minY) * width + (x - minX)] = pixels[y * w + x];
-            
-            //Free the untrimmed pixels
-            free(pdata);
-        }
+        
+        //Free the untrimmed pixels
+        free(buffer);
     }
 
     //Generate a hash for the bitmap
     hashValue = 0;
     HashCombine(hashValue, static_cast<size_t>(width));
     HashCombine(hashValue, static_cast<size_t>(height));
-    HashData(hashValue, reinterpret_cast<char*>(data), (paletteSize > 0 ? sizeof(uint8_t) : sizeof(uint32_t)) * width * height);
-
-    free(pdata);
+    HashData(hashValue, reinterpret_cast<char*>(data), (isIndexed ? sizeof(uint8_t) : sizeof(uint32_t)) * width * height);
 }
 
 Bitmap::Bitmap(int width, int height, uint32_t* palette, int paletteSize)
@@ -265,6 +265,28 @@ void Bitmap::SaveAs(const string& file)
             cout << "failed to save png: " << file << endl;
             exit(EXIT_FAILURE);
         }
+    }
+}
+
+void Bitmap::SetPaletteSlot(Bitmap* dst)
+{
+    if (paletteSize != 256 || dst->paletteSize != 16)
+        return;
+
+    for (int i = 0; i < 16; i++)
+    {
+        int colorCount = 0;
+
+        for (int j = 0; j < 16; j++)
+        {
+            int index = (i * 16) + j;
+
+            if (palette[index] == dst->palette[j])
+                colorCount++;
+        }
+
+        if (colorCount == 16)
+            dst->SetSlot(i);
     }
 }
 

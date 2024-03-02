@@ -49,6 +49,9 @@ int Palette::ReadPng(const char* fileName, Color** colorPalette, int* paletteCou
     unsigned width, height;
 
     lodepng_state_init(&state);
+
+    state.decoder.color_convert = 0;
+
     lodepng_load_file(&png, &size, fileName);
     int result = lodepng_decode(&buffer, &width, &height, &state, png, size);
 

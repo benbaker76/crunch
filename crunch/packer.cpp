@@ -108,6 +108,8 @@ void Packer::SavePng(const string& file, uint32_t* palette, int paletteSize)
     {
         if (points[i].dupID < 0)
         {
+            bitmap.SetPaletteSlot(bitmaps[i]);
+
             if (points[i].rot)
                 bitmap.CopyPixelsRot(bitmaps[i], points[i].x, points[i].y);
             else
@@ -136,6 +138,7 @@ void Packer::SaveXml(const string& name, ofstream& xml, bool trim, bool rotate)
         }
         if (rotate)
             xml << "r=\"" << (points[i].rot ? 1 : 0) << "\" ";
+        xml << "s=\"" << (bitmaps[i]->slot ? 1 : 0) << "\" ";
         xml << "/>" << endl;
     }
     xml << "\t</tex>" << endl;
@@ -161,6 +164,7 @@ void Packer::SaveBin(const string& name, ofstream& bin, bool trim, bool rotate)
         }
         if (rotate)
             WriteByte(bin, points[i].rot ? 1 : 0);
+        WriteByte(bin, bitmaps[i]->slot ? 1 : 0);
     }
 }
 
@@ -185,6 +189,7 @@ void Packer::SaveJson(const string& name, ofstream& json, bool trim, bool rotate
         }
         if (rotate)
             json << ", \"r\":" << (points[i].rot ? "true" : "false");
+        json << ", \"s\":" << (bitmaps[i]->slot ? "true" : "false");
         json << " }";
         if(i != bitmaps.size() -1)
             json << ",";

@@ -46,14 +46,17 @@ struct Bitmap
     uint32_t* palette;
     size_t hashValue;
     int paletteSize;
+    int slot;
 
     Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose);
     Bitmap(int width, int height, uint32_t* palette, int paletteSize);
     ~Bitmap();
     void SaveAs(const string& file);
+    void SetPaletteSlot(Bitmap* dst);
     void CopyPixels(const Bitmap* src, int tx, int ty);
     void CopyPixelsRot(const Bitmap* src, int tx, int ty);
     bool Equals(const Bitmap* other) const;
+    void SetSlot(int slot) { this->slot = slot; }
 };
 
 #endif
