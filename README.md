@@ -62,7 +62,8 @@ bin/atlases/atlas.hash
 
 | option              | alias                     | description     |
 | ------------------- | ------------------------- | --------------- |
-| `-f <xml\|bin\|json>` | `--format <xml\|bin\|json>` | saves the atlas data in xml, binary or json format |
+| `-o <xml\|bin\|json>` | `--output <xml\|bin\|json>` | saves the atlas data in xml, binary or json format |
+| `-f <n>`            | `--format <n>`            | texture format |
 | `-a`                | `--alpha`                 | premultiplies the pixels of the bitmaps by their alpha channel |
 | `-t`                | `--trim`                  | trims excess transparency off the bitmaps |
 | `-v`                | `--verbose`               | print to the debug console as the packer works |
@@ -73,7 +74,7 @@ bin/atlases/atlas.hash
 | `-w <n>`            | `--width <n>`             | max atlas width (overrides `--size`) (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
 | `-h <n>`            | `--height <n>`            | max atlas height (overrides `--size`) (`<n>` can be `4096`, `2048`, `1024`, `512`, `256`, `128`, or `64`) |
 | `-p <n>`            | `--padding <n>`           | padding between images (`<n>` can be from `0` to `16`) |
-| `-b <n\|p\|7\|f>`      | `--binstr <n\|p\|7\|f>`      | string type in binary format (`n`: null-terminated, `p`: prefixed (int16), `7`: 7-bit prefixed, `f`' fixed 8 bytes) |
+| `-b <n\|p\|7\|f>`      | `--binstr <n\|p\|7\|f>`      | string type in binary format (`n`: null-terminated, `p`: prefixed (int16), `7`: 7-bit prefixed, `f`' fixed 16 bytes) |
 | `-l`                | `--last`                  | use file's last write time instead of its contents for hashing |
 | `-d`                | `--dirs`                  | split output textures by subdirectories |
 | `-n`                | `--nozero`                | if there's only one packed texture, then zero at the end of its name will be omitted (ex. `images0.png` -> `images.png`) |
@@ -92,6 +93,9 @@ crch (0x68637263 in hex or 1751347811 in decimal (little endian))
 [byte] string type (0: null-termainated, 1: prefixed (int16), 2: 7-bit prefixed, 3: fixed 16 bytes)
 [int16] num_textures (below block is repeated this many times)
     [string] name
+    [int16] tex_width
+    [int16] tex_height
+    [int16] tex_format
     [int16] num_images (below block is repeated this many times)
         [string] img_name
         [int16] img_x

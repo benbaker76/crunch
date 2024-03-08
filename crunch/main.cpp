@@ -48,7 +48,7 @@ const int binVersion = 0;
 
 #define NAME_LENGTH 16
 
-enum Format
+enum OutputFormat
 {
     XML,
     BIN,
@@ -73,7 +73,8 @@ static struct options
     int height;
     int padding;
     StringType binstr;
-    Format format;
+    OutputFormat output_format;
+    int texture_format;
     bool alpha;
     bool trim;
     bool verbose;
@@ -96,7 +97,8 @@ static const char *helpMessage =
     "   crunch bin/atlases/atlas assets/characters,assets/tiles -a -t -v -u -r\n"
     "\n"
     "options:\n"
-    "   -f --format <xml|bin|json>  saves the atlas data in xml, binary or json format\n"
+    "   -o --output <xml|bin|json>  saves the atlas data in xml, binary or json format\n"
+    "   -f --format <n>             texture format\n"
     "   -a --alpha                  premultiplies the pixels of the bitmaps by their alpha channel\n"
     "   -t --trim                   trims excess transparency off the bitmaps\n"
     "   -v --verbose                print to the debug console as the packer works\n"
@@ -107,7 +109,7 @@ static const char *helpMessage =
     "   -w --width <n>              max atlas width (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
     "   -h --height <n>             max atlas height (overrides --size) (<n> can be 4096, 2048, 1024, 512, 256, 128, or 64)\n"
     "   -p --padding <n>            padding between images (<n> can be from 0 to 16)\n"
-    "   -b --binstr <n|p|7|f>       string type in binary format (n: null-terminated, p: prefixed (int16), 7: 7-bit prefixed, f: fixed 8 bytes)\n"
+    "   -b --binstr <n|p|7|f>       string type in binary format (n: null-terminated, p: prefixed (int16), 7: 7-bit prefixed, f: fixed 16 bytes)\n"
     "   -l --last                   use file's last write time instead of its content for hashing\n"
     "   -d --dirs                   split output textures by subdirectories\n"
     "   -n --nozero                 if there's ony one packed texture, then zero at the end of its name will be omitted (ex. images0.png -> images.png)\n"
@@ -119,21 +121,24 @@ static const char *helpMessage =
     "[int16] version (current version is 0)"
     "[byte] --trim enabled\n"
     "[byte] --rotate enabled\n"
-    "[byte] string type (0 - null-termainated, 1 - prefixed (int16), 2 - 7-bit prefixed)\n"
+    "[byte] string type (0 - null-termainated, 1 - prefixed (int16), 2 - 7-bit prefixed, f: fixed 16 bytes)\n"
     "[int16] num_textures (below block is repeated this many times)\n"
     "  [string] name\n"
-    "    [int16] num_images (below block is repeated this many times)\n"
-    "      [string] img_name\n"
-    "      [int16] img_x\n"
-    "      [int16] img_y\n"
-    "      [int16] img_width\n"
-    "      [int16] img_height\n"
-    "      [int16] img_frame_x         (if --trim enabled)\n"
-    "      [int16] img_frame_y         (if --trim enabled)\n"
-    "      [int16] img_frame_width     (if --trim enabled)\n"
-    "      [int16] img_frame_height    (if --trim enabled)\n"
-    "      [byte] img_rotated          (if --rotate enabled)\n"
-    "      [byte] img_slot";
+    "  [int16] tex_width\n"
+    "  [int16] tex_height\n"
+    "  [int16] tex_format\n"
+    "  [int16] num_images (below block is repeated this many times)\n"
+    "    [string] img_name\n"
+    "    [int16] img_x\n"
+    "    [int16] img_y\n"
+    "    [int16] img_width\n"
+    "    [int16] img_height\n"
+    "    [int16] img_frame_x         (if --trim enabled)\n"
+    "    [int16] img_frame_y         (if --trim enabled)\n"
+    "    [int16] img_frame_width     (if --trim enabled)\n"
+    "    [int16] img_frame_height    (if --trim enabled)\n"
+    "    [byte] img_rotated          (if --rotate enabled)\n"
+    "    [byte] img_slot";
 
 static void SplitFileName(const string &path, string *dir, string *name, string *ext)
 {
@@ -209,9 +214,9 @@ static void RemoveFile(string file)
     remove(file.data());
 }
 
-static const char *GetFormatString(Format format)
+static const char *GetFormatString(OutputFormat output_format)
 {
-    switch (format)
+    switch (output_format)
     {
     case XML:
         return "xml";
@@ -420,7 +425,7 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
 
     StartTimer("saving atlas");
     // Save the atlas binary
-    if (options.format == BIN)
+    if (options.output_format == BIN)
     {
         SetStringType(options.binstr);
         if (options.verbose)
@@ -441,12 +446,12 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
         }
         WriteShort(bin, (int16_t)packers.size());
         for (size_t i = 0; i < packers.size(); ++i)
-            packers[i]->SaveBin(name + (noZero ? "" : to_string(i)), bin, options.trim, options.rotate, NAME_LENGTH);
+            packers[i]->SaveBin(name + (noZero ? "" : to_string(i)), bin, options.texture_format, options.trim, options.rotate, NAME_LENGTH);
         bin.close();
     }
 
     // Save the atlas xml
-    if (options.format == XML)
+    if (options.output_format == XML)
     {
         if (options.verbose)
             cout << "writing xml: " << outputDir << name << ".xml" << endl;
@@ -459,13 +464,13 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
             xml << "\t<rotate>" << (options.rotate ? "true" : "false") << "</trim>" << endl;
         }
         for (size_t i = 0; i < packers.size(); ++i)
-            packers[i]->SaveXml(name + (noZero ? "" : to_string(i)), xml, options.trim, options.rotate);
+            packers[i]->SaveXml(name + (noZero ? "" : to_string(i)), xml, options.texture_format, options.trim, options.rotate);
         if (!options.dirs) xml << "</atlas>";
         xml.close();
     }
 
     // Save the atlas json
-    if (options.format == JSON)
+    if (options.output_format == JSON)
     {
         if (options.verbose)
             cout << "writing json: " << outputDir << name << ".json" << endl;
@@ -481,7 +486,7 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
         for (size_t i = 0; i < packers.size(); ++i)
         {
             json << "\t\t{" << endl;
-            packers[i]->SaveJson(name + (noZero ? "" : to_string(i)), json, options.trim, options.rotate);
+            packers[i]->SaveJson(name + (noZero ? "" : to_string(i)), json, options.texture_format, options.trim, options.rotate);
             json << "\t\t}";
             if (!options.dirs)
             {
@@ -520,7 +525,8 @@ int main(int argc, char **argv)
         .size = 4096,
         .padding = 1,
         .binstr = NULL_TERMINATED,
-        .format = XML,
+        .output_format = XML,
+        .texture_format = 0,
         .alpha = true,
         .trim = false,
         .verbose = false,
@@ -532,6 +538,7 @@ int main(int argc, char **argv)
     };
 
     static option long_options[] = {
+        {"output", required_argument, nullptr, 'o'},
         {"format", required_argument, nullptr, 'f'},
         {"alpha", no_argument, nullptr, 'a'},
         {"trim", no_argument, nullptr, 't'},
@@ -553,15 +560,18 @@ int main(int argc, char **argv)
     int option;
     int option_index = 0;
 
-    while ((option = getopt_long(argc, argv, "f:atvaiurldnb:s:w:h:p:", long_options, &option_index)) != -1) {
+    while ((option = getopt_long(argc, argv, "o:f:atvaiurldnb:s:w:h:p:", long_options, &option_index)) != -1) {
         switch (option) {
-            case 'f':
+            case 'o':
                 if (strcmp(optarg, "xml") == 0)
-                    options.format = XML;
+                    options.output_format = XML;
                 else if (strcmp(optarg, "bin") == 0)
-                    options.format = BIN;
+                    options.output_format = BIN;
                 else if (strcmp(optarg, "json") == 0)
-                    options.format = JSON;
+                    options.output_format = JSON;
+                break;
+            case 'f':
+                options.texture_format = atoi(optarg);
                 break;
             case 'a':
                 options.alpha = true;
@@ -649,7 +659,7 @@ int main(int argc, char **argv)
     if (options.verbose)
     {
         cout << "options..." << endl;
-        cout << "\t--format: " << string(GetFormatString(options.format)) << endl;
+        cout << "\t--format: " << string(GetFormatString(options.output_format)) << endl;
         cout << "\t--alpha: " << (options.alpha ? "true" : "false") << endl;
         cout << "\t--trim: " << (options.trim ? "true" : "false") << endl;
         cout << "\t--verbose: " << (options.verbose ? "true" : "false") << endl;
@@ -742,7 +752,7 @@ int main(int argc, char **argv)
 
     StartTimer("saving atlas");
     vector<string> cachedPackers;
-    if (options.format == BIN)
+    if (options.output_format == BIN)
     {
         SetStringType(options.binstr);
         if (options.verbose)
@@ -779,7 +789,7 @@ int main(int argc, char **argv)
         bin.close();
     }
      
-    if (options.format == XML)
+    if (options.output_format == XML)
     {
         if (options.verbose)
             cout << "writing xml: " << outputDir << name << ".xml" << endl;
@@ -802,7 +812,7 @@ int main(int argc, char **argv)
         xml.close();
     }
 
-    if (options.format == JSON)
+    if (options.output_format == JSON)
     {
         if (options.verbose)
             cout << "writing json: " << outputDir << name << ".json" << endl;

@@ -55,9 +55,9 @@ struct Packer
     Packer(int width, int height, int pad);
     void Pack(vector<Bitmap*>& bitmaps, bool verbose, bool unique, bool rotate);
     void SavePng(const string& file, uint32_t* palette, int paletteSize);
-    void SaveXml(const string& name, ofstream& xml, bool trim, bool rotate);
-    void SaveBin(const string& name, ofstream& bin, bool trim, bool rotate, int length);
-    void SaveJson(const string& name, ofstream& json, bool trim, bool rotate);
+    void SaveXml(const string& name, ofstream& xml, int format, bool trim, bool rotate);
+    void SaveBin(const string& name, ofstream& bin, int format, bool trim, bool rotate, int length);
+    void SaveJson(const string& name, ofstream& json, int format, bool trim, bool rotate);
 };
 
 #endif
