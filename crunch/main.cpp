@@ -512,7 +512,11 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
     return EXIT_SUCCESS;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+int wmain(int argc, char **argv)
+#else
 int main(int argc, char **argv)
+#endif
 {
     StartTimer("total");
 

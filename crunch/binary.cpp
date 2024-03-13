@@ -76,13 +76,14 @@ void WriteString7BitPrefixed(ofstream& bin, const string& value)
 
 void WriteStringFixedLength(ofstream& bin, const string& value, int length)
 {
-    char buffer[length];
+    char *buffer = new char[length];
     memset(buffer, 0, length);
 
     int copyLength = min(length - 1, static_cast<int>(value.length()));
     strncpy(buffer, value.c_str(), copyLength);
 
     bin.write(buffer, length);
+    delete[] buffer;
 }
 
 void WriteShort(ofstream& bin, int16_t value)
