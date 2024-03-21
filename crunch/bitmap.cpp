@@ -35,7 +35,7 @@
 using namespace std;
 
 Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose)
-: name(name), palette(NULL), paletteSize(0)
+: name(name), palette(NULL), paletteSize(0), slot(0)
 {
     int result;
     LodePNGState state;
@@ -203,16 +203,32 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
 }
 
 Bitmap::Bitmap(int width, int height, uint32_t* palette, int paletteSize)
-: width(width), height(height), palette(palette), paletteSize(paletteSize)
+: width(width), height(height), palette(nullptr), paletteSize(paletteSize)
 {
-    if (paletteSize > 0)
+    if (this->paletteSize > 0)
+    {
+        this->palette = reinterpret_cast<uint32_t*>(calloc(paletteSize, sizeof(uint32_t)));
+
+        if (this->palette)
+        {
+			memcpy(this->palette, palette, this->paletteSize * sizeof(uint32_t));
+		}
+        else
+        {
+			cerr << "failed to allocate palette" << endl;
+			exit(EXIT_FAILURE);
+		}
+
         data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint8_t)));
+    }
     else
         data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint32_t)));
 }
 
 Bitmap::~Bitmap()
 {
+    if (paletteSize)
+		free(palette);
     free(data);
 }
 
@@ -270,7 +286,7 @@ void Bitmap::SaveAs(const string& file)
 
 void Bitmap::SetPaletteSlot(Bitmap* dst)
 {
-    if (paletteSize != 256 || dst->paletteSize != 16)
+    if (paletteSize != 256 || dst->paletteSize < 16)
         return;
 
     for (int i = 0; i < 16; i++)
@@ -281,12 +297,15 @@ void Bitmap::SetPaletteSlot(Bitmap* dst)
         {
             int index = (i * 16) + j;
 
-            if (palette[index] == dst->palette[j])
+            if ((palette[index] & 0xffffff) == (dst->palette[j] & 0xffffff))
                 colorCount++;
         }
 
         if (colorCount == 16)
+        {
             dst->SetSlot(i);
+            break;
+        }
     }
 }
 

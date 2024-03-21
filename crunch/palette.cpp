@@ -37,7 +37,7 @@ int Palette::StartsWith(const unsigned char* thisBytes, const unsigned char* tha
 
 int Palette::ReadPng(const char* fileName, Color** colorPalette, int* paletteCount)
 {
-    *colorPalette = new Color[256];
+    *colorPalette = (Color*)calloc(256, sizeof(Color));
 
     if (*colorPalette == nullptr)
         return EXIT_FAILURE;
@@ -103,7 +103,7 @@ int Palette::ReadMsPal(std::ifstream& file, Color** colorPalette, int* paletteCo
     file.read(reinterpret_cast<char*>(paletteVersion), sizeof(unsigned char) * 2);
     file.read(reinterpret_cast<char*>(&palCount), sizeof(short));
     
-    *colorPalette = new Color[palCount];
+    *colorPalette = (Color*)calloc(palCount, sizeof(Color));
     *paletteCount = palCount;
 
     if (*colorPalette == nullptr)
@@ -124,7 +124,7 @@ int Palette::ReadMsPal(std::ifstream& file, Color** colorPalette, int* paletteCo
 
 int Palette::ReadActPal(std::ifstream& file, Color** colorPalette, int* paletteCount, int *transparentIndex)
 {
-    *colorPalette = new Color[256];
+    *colorPalette = (Color *)calloc(256, sizeof(Color));
 
     if (*colorPalette == nullptr)
         return EXIT_FAILURE;
@@ -177,7 +177,7 @@ int Palette::ReadJascPal(std::ifstream& file, Color** colorPalette, int* palette
     file.getline(versionString, 256);
     file >> *paletteCount;
 
-    *colorPalette = new Color[*paletteCount];
+    *colorPalette = (Color*)calloc(*paletteCount, sizeof(Color));
 
     if (*colorPalette == nullptr)
     {
@@ -210,7 +210,7 @@ int Palette::ReadJascPal(std::ifstream& file, Color** colorPalette, int* palette
 
 int Palette::ReadGimpPal(std::ifstream& file, Color** colorPalette)
 {
-    *colorPalette = new Color[256];
+    *colorPalette = (Color*)calloc(256, sizeof(Color));
 
     if (*colorPalette == nullptr)
         return EXIT_FAILURE; 
@@ -260,7 +260,7 @@ int Palette::ReadGimpPal(std::ifstream& file, Color** colorPalette)
 
 int Palette::ReadPaintNetPal(std::ifstream& file, Color** colorPalette)
 {
-    *colorPalette = new Color[256];
+    *colorPalette = (Color*)calloc(256, sizeof(Color));
 
     if (*colorPalette == nullptr)
         return EXIT_FAILURE;

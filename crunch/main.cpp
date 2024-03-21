@@ -29,8 +29,11 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#if defined(_WIN32) || defined(_WIN64)
+#include "getopt.h"
+#else
 #include <getopt.h>
-#include <unistd.h>
+#endif
 #include "tinydir.h"
 #include "bitmap.hpp"
 #include "packer.hpp"
@@ -412,9 +415,14 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
         if (options.paletteFilename)
         {
             Palette palette;
-            palette.ReadPalette(options.paletteFilename, &colorPalette, &paletteSize, &transparentIndex);
+            if (palette.ReadPalette(options.paletteFilename, &colorPalette, &paletteSize, &transparentIndex) == EXIT_FAILURE)
+            {
+                cerr << "could not read palette: " << options.paletteFilename << endl;
+				return EXIT_FAILURE;
+            }
+
             packers[i]->SavePng(pngName, reinterpret_cast<uint32_t*>(colorPalette), paletteSize);
-            delete[] colorPalette;
+            free(colorPalette);
         }
         else
         {
@@ -512,16 +520,12 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
     return EXIT_SUCCESS;
 }
 
-#if defined(_WIN32) || defined(_WIN64)
-int wmain(int argc, char **argv)
-#else
 int main(int argc, char **argv)
-#endif
 {
     StartTimer("total");
 
     // Get the options
-    options = (struct options)
+    options =
     {
         .inputFilename = nullptr,
         .outputFilename = nullptr,
@@ -648,14 +652,7 @@ int main(int argc, char **argv)
     }
 
     if (argc - optind > 2)
-    {
         options.paletteFilename = argv[optind + 2];
-        if (access(options.paletteFilename, F_OK) == -1)
-        {
-            std::cout << options.paletteFilename << " cannot be found" << std::endl;
-            return EXIT_FAILURE;
-        }
-    }
 
     if (options.width == 0) options.width = options.size;
     if (options.height == 0) options.height = options.size;
