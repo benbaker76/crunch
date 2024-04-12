@@ -35,7 +35,7 @@
 using namespace std;
 
 Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose)
-: name(name), palette(NULL), paletteSize(0), slot(0)
+: name(name), palette(NULL), paletteSize(0), paletteSlot(0)
 {
     int result;
     LodePNGState state;
@@ -303,7 +303,7 @@ void Bitmap::SetPaletteSlot(Bitmap* dst)
 
         if (colorCount == 16)
         {
-            dst->SetSlot(i);
+            dst->SetPaletteSlot(i);
             break;
         }
     }

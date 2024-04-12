@@ -141,7 +141,7 @@ void Packer::SaveXml(const string& name, ofstream& xml, int format, bool trim, b
         }
         if (rotate)
             xml << "r=\"" << (points[i].rot ? 1 : 0) << "\" ";
-        xml << "s=\"" << bitmaps[i]->slot << "\" ";
+        xml << "s=\"" << bitmaps[i]->paletteSlot << "\" ";
         xml << "/>" << endl;
     }
     xml << "\t</tex>" << endl;
@@ -170,7 +170,7 @@ void Packer::SaveBin(const string& name, ofstream& bin, int format, bool trim, b
         }
         if (rotate)
             WriteByte(bin, points[i].rot ? 1 : 0);
-        WriteByte(bin, bitmaps[i]->slot);
+        WriteByte(bin, bitmaps[i]->paletteSlot);
     }
 }
 
@@ -198,7 +198,7 @@ void Packer::SaveJson(const string& name, ofstream& json, int format, bool trim,
         }
         if (rotate)
             json << ", \"r\":" << (points[i].rot ? "true" : "false");
-        json << ", \"s\":" << bitmaps[i]->slot;
+        json << ", \"s\":" << bitmaps[i]->paletteSlot;
         json << " }";
         if(i != bitmaps.size() -1)
             json << ",";
