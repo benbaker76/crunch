@@ -351,7 +351,7 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
 
     // Remove old files
     RemoveFile(outputDir + name + ".hash");
-    RemoveFile(outputDir + name + ".bin");
+    RemoveFile(outputDir + name + ".crch");
     RemoveFile(outputDir + name + ".xml");
     RemoveFile(outputDir + name + ".json");
     RemoveFile(outputDir + name + ".png");
@@ -437,9 +437,9 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
     {
         SetStringType(options.binstr);
         if (options.verbose)
-            cout << "writing bin: " << outputDir << name << ".bin" << endl;
+            cout << "writing bin: " << outputDir << name << ".crch" << endl;
 
-        ofstream bin(outputDir + name + ".bin", ios::binary);
+        ofstream bin(outputDir + name + ".crch", ios::binary);
         
         if (!options.dirs)
         {
@@ -747,7 +747,7 @@ int main(int argc, char **argv)
         return EXIT_SUCCESS;
     }
 
-    RemoveFile(outputDir + name + ".bin");
+    RemoveFile(outputDir + name + ".crch");
     RemoveFile(outputDir + name + ".xml");
     RemoveFile(outputDir + name + ".json");
 
@@ -757,13 +757,13 @@ int main(int argc, char **argv)
     {
         SetStringType(options.binstr);
         if (options.verbose)
-            cout << "writing bin: " << outputDir << name << ".bin" << endl;
+            cout << "writing bin: " << outputDir << name << ".crch" << endl;
 
         vector<ifstream*> cacheFiles;
 
-        FindPackers(outputDir, namePrefix, "bin", cachedPackers);
+        FindPackers(outputDir, namePrefix, "crch", cachedPackers);
 
-        ofstream bin(outputDir + name + ".bin", ios::binary);
+        ofstream bin(outputDir + name + ".crch", ios::binary);
         WriteByte(bin, 'c');
         WriteByte(bin, 'r');
         WriteByte(bin, 'c');
