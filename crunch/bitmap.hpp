@@ -30,12 +30,17 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include "lodepng.h"
 
 using namespace std;
 
 struct Bitmap
 {
+    int frameIndex;
     string name;
+    string label;
+    int loopDirection;
+    int duration;
     int width;
     int height;
     int frameX;
@@ -49,10 +54,12 @@ struct Bitmap
     int paletteSlot;
 
     Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose);
+    Bitmap(int frameIndex, const string& name, const string& label, int loopDirection, int duration, LodePNGState* state, unsigned char* png, size_t size, bool premultiply, bool trim, bool verbose);
     Bitmap(int width, int height, uint32_t* palette, int paletteSize);
     ~Bitmap();
+    bool DecodePng(LodePNGState* state, unsigned char* png, size_t size, bool premultiply, bool trim, bool verbose);
     void SaveAs(const string& file);
-    void SetPaletteSlot(Bitmap* dst);
+    void FindPaletteSlot(Bitmap* dst);
     void SetPaletteSlot(int paletteSlot) { this->paletteSlot = paletteSlot; }
     void CopyPixels(const Bitmap* src, int tx, int ty);
     void CopyPixelsRot(const Bitmap* src, int tx, int ty);

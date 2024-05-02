@@ -102,13 +102,21 @@ void Packer::Pack(vector<Bitmap*>& bitmaps, bool verbose, bool unique, bool rota
 
 void Packer::SavePng(const string& file, uint32_t* palette, int paletteSize)
 {
+    // Sort the bitmaps by name, then frameIndex
+    stable_sort(bitmaps.begin(), bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
+        if (a->name != b->name) {
+            return a->name < b->name;
+        }
+        return a->frameIndex < b->frameIndex;
+        });
+
     Bitmap bitmap(width, height, palette, paletteSize);
 
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
         if (points[i].dupID < 0)
         {
-            bitmap.SetPaletteSlot(bitmaps[i]);
+            bitmap.FindPaletteSlot(bitmaps[i]);
 
             if (points[i].rot)
                 bitmap.CopyPixelsRot(bitmaps[i], points[i].x, points[i].y);
@@ -127,7 +135,11 @@ void Packer::SaveXml(const string& name, ofstream& xml, int format, bool trim, b
     xml << "format=\"" << format << "\">" << endl;
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
-        xml << "\t\t<img n=\"" << bitmaps[i]->name << "\" ";
+        xml << "\t\t<img fi=\"" << bitmaps[i]->frameIndex << "\" ";
+        xml << "n=\"" << bitmaps[i]->name << "\" ";
+        xml << "l=\"" << bitmaps[i]->label << "\" ";
+        xml << "ld=\"" << bitmaps[i]->loopDirection << "\" ";
+        xml << "d=\"" << bitmaps[i]->duration << "\" ";
         xml << "x=\"" << points[i].x << "\" ";
         xml << "y=\"" << points[i].y << "\" ";
         xml << "w=\"" << bitmaps[i]->width << "\" ";
@@ -141,7 +153,7 @@ void Packer::SaveXml(const string& name, ofstream& xml, int format, bool trim, b
         }
         if (rotate)
             xml << "r=\"" << (points[i].rot ? 1 : 0) << "\" ";
-        xml << "s=\"" << bitmaps[i]->paletteSlot << "\" ";
+        xml << "ps=\"" << bitmaps[i]->paletteSlot << "\" ";
         xml << "/>" << endl;
     }
     xml << "\t</tex>" << endl;
@@ -156,7 +168,11 @@ void Packer::SaveBin(const string& name, ofstream& bin, int format, bool trim, b
     WriteShort(bin, (int16_t)bitmaps.size());
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
+        WriteShort(bin, (int16_t)bitmaps[i]->frameIndex);
         WriteString(bin, bitmaps[i]->name, length);
+        WriteString(bin, bitmaps[i]->label, length);
+        WriteByte(bin, bitmaps[i]->loopDirection);
+        WriteShort(bin, (int16_t)bitmaps[i]->duration);
         WriteShort(bin, (int16_t)points[i].x);
         WriteShort(bin, (int16_t)points[i].y);
         WriteShort(bin, (int16_t)bitmaps[i]->width);
@@ -171,6 +187,7 @@ void Packer::SaveBin(const string& name, ofstream& bin, int format, bool trim, b
         if (rotate)
             WriteByte(bin, points[i].rot ? 1 : 0);
         WriteByte(bin, bitmaps[i]->paletteSlot);
+        std::cout << "Saved " << bitmaps[i]->name << " slot " << bitmaps[i]->paletteSlot << std::endl;
     }
 }
 
@@ -184,7 +201,11 @@ void Packer::SaveJson(const string& name, ofstream& json, int format, bool trim,
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
         json << "\t\t\t\t{ ";
+        json << "\"fi\":" << bitmaps[i]->frameIndex << ", ";
         json << "\"n\":\"" << bitmaps[i]->name << "\", ";
+        json << "\"l\":\"" << bitmaps[i]->label << "\", ";
+        json << "\"ld\":" << bitmaps[i]->loopDirection << ", ";
+        json << "\"d\":" << bitmaps[i]->duration << ", ";
         json << "\"x\":" << points[i].x << ", ";
         json << "\"y\":" << points[i].y << ", ";
         json << "\"w\":" << bitmaps[i]->width << ", ";
@@ -198,7 +219,7 @@ void Packer::SaveJson(const string& name, ofstream& json, int format, bool trim,
         }
         if (rotate)
             json << ", \"r\":" << (points[i].rot ? "true" : "false");
-        json << ", \"s\":" << bitmaps[i]->paletteSlot;
+        json << ", \"ps\":" << bitmaps[i]->paletteSlot;
         json << " }";
         if(i != bitmaps.size() -1)
             json << ",";

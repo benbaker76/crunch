@@ -42,11 +42,15 @@
 #include "str.hpp"
 #include "time.hpp"
 #include "palette.h"
+
+#define CUTE_ASEPRITE_IMPLEMENTATION
+#include "cute_aseprite.h"
+
 #define EXIT_SKIPPED 2
 
 using namespace std;
 
-const char *version = "v0.14";
+const char *version = "v0.20";
 const int binVersion = 0;
 
 #define NAME_LENGTH 16
@@ -131,7 +135,11 @@ static const char *helpMessage =
     "  [int16] tex_height\n"
     "  [int16] tex_format\n"
     "  [int16] num_images (below block is repeated this many times)\n"
+    "    [int16] img_frame_index\n"
     "    [string] img_name\n"
+    "    [string] img_label\n"
+    "    [byte] img_loop_direction\n"
+    "    [int16] img_duration\n"
     "    [int16] img_x\n"
     "    [int16] img_y\n"
     "    [int16] img_width\n"
@@ -187,7 +195,152 @@ static void LoadBitmap(const string &prefix, const string &path)
     bitmaps.push_back(new Bitmap(path, prefix + GetFileName(path), options.alpha, options.trim, options.verbose));
 }
 
-static void LoadBitmaps(const string &root, const string &prefix)
+static void LoadAseprite(const string& prefix, const string& path)
+{
+    ase_t* ase = cute_aseprite_load_from_file(path.c_str(), NULL);
+
+    if (ase == NULL)
+    {
+        cerr << "Can't open file %s." << path << endl;
+        return;
+    }
+
+    if (ase->mode != ASE_MODE_INDEXED)
+    {
+        cerr << "Can't read the Aseprite image format. Must be a paletted 8-bit image." << endl;
+        return;
+    }
+
+    for (int frameIndex = 0; frameIndex < ase->frame_count; frameIndex++)
+    {
+        ase_frame_t* frame = &ase->frames[frameIndex];
+
+        // Allocate memory for image data for the current frame
+        uint8_t* image = (uint8_t*)malloc(ase->w * ase->h);
+
+        if (image == NULL)
+        {
+            cerr << "Can't allocate memory for image data." << endl;
+            return;
+        }
+
+        // Copy palette colors
+        uint8_t* palette = (uint8_t*)malloc(ase->palette.entry_count * 4);
+
+        for (int i = 0; i < ase->palette.entry_count; i++)
+        {
+            palette[i * 4 + 0] = ase->palette.entries[i].color.a;
+            palette[i * 4 + 1] = ase->palette.entries[i].color.r;
+            palette[i * 4 + 2] = ase->palette.entries[i].color.g;
+            palette[i * 4 + 3] = ase->palette.entries[i].color.b;
+        }
+
+        // Copy pixel data from the current frame to image
+        for (int j = 0; j < ase->w * ase->h; j++)
+        {
+            uint8_t color = 0;
+
+            if ((frame->pixels[j].a == 0) &&
+                (frame->pixels[j].r == 0) &&
+                (frame->pixels[j].g == 0) &&
+                (frame->pixels[j].b == 0))
+            {
+                color = ase->transparent_palette_entry_index;
+            }
+            else {
+                for (int i = 0; i < ase->palette.entry_count; i++)
+                {
+
+                    if ((frame->pixels[j].a == ase->palette.entries[i].color.a) &&
+                        (frame->pixels[j].r == ase->palette.entries[i].color.r) &&
+                        (frame->pixels[j].g == ase->palette.entries[i].color.g) &&
+                        (frame->pixels[j].b == ase->palette.entries[i].color.b))
+                    {
+                        color = i;
+                        break;
+                    }
+                }
+            }
+
+            image[j] = color;
+        }
+
+        // Get tags information
+        ase_tag_t* tags = ase->tags;
+        int tagCount = ase->tag_count;
+        string tagLabel = "";
+        int loopDirection = 0;
+
+        for (int i = 0; i < tagCount; i++)
+        {
+            if (frameIndex >= tags[i].from_frame && frameIndex <= tags[i].to_frame)
+            {
+                tagLabel = tags[i].name != NULL ? tags[i].name : "";
+                loopDirection = tags[i].loop_animation_direction;
+                break;
+            }
+        }
+
+        // Encode and save PNG
+        size_t pngSize;
+        unsigned char* pngData = NULL;
+        LodePNGState state;
+        lodepng_state_init(&state);
+
+        state.info_raw.colortype = LCT_PALETTE;
+        state.info_raw.bitdepth = 8;
+        state.info_png.color.colortype = LCT_PALETTE;
+        state.info_png.color.bitdepth = 8;
+        state.encoder.auto_convert = 0;
+
+        // Set palette
+        for (int i = 0; i < ase->palette.entry_count; i++) {
+            lodepng_palette_add(&state.info_png.color, palette[i * 4 + 1], palette[i * 4 + 2], palette[i * 4 + 3], palette[i * 4 + 0]);
+            lodepng_palette_add(&state.info_raw, palette[i * 4 + 1], palette[i * 4 + 2], palette[i * 4 + 3], palette[i * 4 + 0]);
+        }
+
+        unsigned int error = lodepng_encode(&pngData, &pngSize, image, ase->w, ase->h, &state);
+
+        if (!error) {
+            bitmaps.push_back(new Bitmap(frameIndex, prefix + GetFileName(path), tagLabel, loopDirection, frame->duration_milliseconds, &state, pngData, pngSize, options.alpha, options.trim, options.verbose));
+        }
+        else {
+            printf("Error %u: %s\n", error, lodepng_error_text(error));
+        }
+
+        lodepng_state_cleanup(&state);
+
+        // Clean up
+        //free(pngData);
+        free(image);
+        free(palette);
+    }
+
+    cute_aseprite_free(ase);
+}
+
+
+void LoadFile(const std::string& dir, const std::string& filename) {
+    size_t dotPosition = filename.rfind('.');
+    if (dotPosition != std::string::npos) {
+        std::string extension = filename.substr(dotPosition + 1);
+        if (extension == "png") {
+            LoadBitmap(dir, filename);
+        }
+        else if (extension == "ase" || extension == "aseprite") {
+            LoadAseprite(dir, filename);
+        }
+        else {
+            std::cerr << "Unsupported file format: " << extension << std::endl;
+        }
+    }
+    else {
+        std::cerr << "Invalid filename: " << filename << std::endl;
+    }
+}
+
+
+static void LoadFiles(const string &root, const string &prefix)
 {
     static string dot1 = ".";
     static string dot2 = "..";
@@ -203,10 +356,12 @@ static void LoadBitmaps(const string &root, const string &prefix)
         if (file.is_dir)
         {
             if (dot1 != PathToStr(file.name) && dot2 != PathToStr(file.name))
-                LoadBitmaps(PathToStr(file.path), prefix + PathToStr(file.name) + "/");
+                LoadFiles(PathToStr(file.path), prefix + PathToStr(file.name) + "/");
         }
         else if (PathToStr(file.extension) == "png")
             LoadBitmap(prefix, PathToStr(file.path));
+        else if (PathToStr(file.extension) == "ase" || PathToStr(file.extension) == "aseprite")
+            LoadAseprite(prefix, PathToStr(file.path));
     }
 
     tinydir_close(&dir);
@@ -366,9 +521,9 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
     for (size_t i = 0; i < inputs.size(); ++i)
     {
         if (!options.dirs && inputs[i].rfind('.') != string::npos)
-            LoadBitmap("", inputs[i]);
+            LoadFile("", inputs[i]);
         else
-            LoadBitmaps(inputs[i], prefix);
+            LoadFiles(inputs[i], prefix);
     }
     StopTimer("loading bitmaps");
 
@@ -379,6 +534,7 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
     StopTimer("sorting bitmaps");
 
     StartTimer("packing bitmaps");
+
     // Pack the bitmaps
     while (!bitmaps.empty())
     {

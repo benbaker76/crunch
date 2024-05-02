@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="crunch\binary.hpp" />
     <ClInclude Include="crunch\bitmap.hpp" />
+    <ClInclude Include="crunch\cute_aseprite.h" />
     <ClInclude Include="crunch\getopt.h" />
     <ClInclude Include="crunch\GuillotineBinPack.h" />
     <ClInclude Include="crunch\hash.hpp" />

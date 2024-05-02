@@ -15,8 +15,9 @@ It is designed using libraries with permissible licenses, so you are able to use
 - Remove duplicate images
 - Caching to prevent redundant builds
 - Multi-image atlas when the sprites don't fit
-- Support for indexed png's
+- Support for indexed pngs'
 - Support for using palette file for indexed format (act, JASC, MS pal, GIMP, Paint.net and png)
+- Support for Aseprite format
 
 ## What does it do?
 
@@ -27,6 +28,7 @@ images/
     player.png
     tree.png
     enemy.png
+    mario.ase
 ```
 
 It will output something like this:
@@ -97,7 +99,11 @@ crch (0x68637263 in hex or 1751347811 in decimal (little endian))
     [int16] tex_height
     [int16] tex_format
     [int16] num_images (below block is repeated this many times)
+        [int16] img_frame_index
         [string] img_name
+        [string] img_label
+        [byte] img_loop_direction
+        [int16] img_duration
         [int16] img_x
         [int16] img_y
         [int16] img_width
@@ -107,7 +113,7 @@ crch (0x68637263 in hex or 1751347811 in decimal (little endian))
         [int16] img_frame_width     (if --trim enabled)
         [int16] img_frame_height    (if --trim enabled)
         [byte] img_rotated          (if --rotate enabled)
-        [byte] img_slot
+        [byte] img_palette_slot
 ```
 
 ## Splitting
@@ -158,3 +164,9 @@ But there're some limitations:
 cd linux/
 make
 ```
+
+## Credits
+* [Ben Baker](https://github.com/benbaker76) - Support for indexed pngs', palette files and Aseprite support
+* [Chevy Ray Johnston](https://github.com/ChevyRay) - Original [crunch](https://github.com/ChevyRay/crunch)
+* [Nebulaxin](https://github.com/Nebulaxin) - Updated [crunch](https://github.com/Nebulaxin/crunch)
+* [Randy Gaul](https://github.com/RandyGaul) - [cute_aseprite](https://github.com/RandyGaul/cute_headers/)

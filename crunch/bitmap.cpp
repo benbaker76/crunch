@@ -35,14 +35,11 @@
 using namespace std;
 
 Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool trim, bool verbose)
-: name(name), palette(NULL), paletteSize(0), paletteSlot(0)
+    : frameIndex(0), name(name), label(""), loopDirection(0), duration(0), palette(nullptr), paletteSize(0), paletteSlot(0)
 {
-    int result;
     LodePNGState state;
     unsigned char* png = NULL;
     size_t size = 0;
-    unsigned char* buffer;
-    unsigned int pw, ph;
 
     lodepng_state_init(&state);
 
@@ -54,27 +51,75 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
         ::exit(EXIT_FAILURE);
     }
 
-    result = lodepng_decode(&buffer, &pw, &ph, &state, png, size);
-    
+    if (!DecodePng(&state, png, size, premultiply, trim, verbose))
+    {
+        cerr << "failed to load png: " << file << endl;
+        ::exit(EXIT_FAILURE);
+    }
+
+    lodepng_state_cleanup(&state);
+}
+
+Bitmap::Bitmap(int frameIndex, const string& name, const string& label, int loopDirection, int duration, LodePNGState* state, unsigned char* png, size_t size, bool premultiply, bool trim, bool verbose)
+    : frameIndex(frameIndex), name(name), label(label), loopDirection(loopDirection), duration(duration), palette(nullptr), paletteSize(0), paletteSlot(0)
+{
+    if (!DecodePng(state, png, size, premultiply, trim, verbose))
+    {
+		cerr << "failed to load png: " << name << endl;
+		::exit(EXIT_FAILURE);
+	}
+}
+
+Bitmap::Bitmap(int width, int height, uint32_t * palette, int paletteSize)
+    : frameIndex(0), name(""), label(""), loopDirection(0), duration(0), width(width), height(height), palette(nullptr), paletteSize(paletteSize), paletteSlot(0)
+{
+    if (this->paletteSize > 0)
+    {
+        this->palette = reinterpret_cast<uint32_t*>(calloc(paletteSize, sizeof(uint32_t)));
+
+        if (this->palette)
+        {
+            memcpy(this->palette, palette, this->paletteSize * sizeof(uint32_t));
+        }
+        else
+        {
+            cerr << "failed to allocate palette" << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint8_t)));
+    }
+    else
+        data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint32_t)));
+}
+
+bool Bitmap::DecodePng(LodePNGState *state, unsigned char* png, size_t size, bool premultiply, bool trim, bool verbose)
+{
+    unsigned char* buffer;
+    unsigned int pw, ph;
+    int result;
+
+    result = lodepng_decode(&buffer, &pw, &ph, state, png, size);
+
     if (result)
     {
-        cerr << "failed to load png: " << file << " (" << lodepng_error_text(result) << ") " << endl;
-        ::exit(EXIT_FAILURE);
+		cerr << "failed to decode png: " << lodepng_error_text(result) << endl;
+		return false;
     }
 
     int w = static_cast<int>(pw);
     int h = static_cast<int>(ph);
 
-    LodePNGColorMode* color = &state.info_png.color;
+    LodePNGColorMode* color = &state->info_png.color;
     bool isIndexed = (color->colortype == LCT_PALETTE);
 
-    if(isIndexed)
+    if (isIndexed)
     {
         paletteSize = color->palettesize;
         palette = reinterpret_cast<uint32_t*>(calloc(paletteSize, sizeof(uint32_t)));
-        
+
         memcpy(palette, color->palette, paletteSize * sizeof(uint32_t));
-        
+
         if (color->bitdepth == 4)
         {
             LodePNGColorMode mode = lodepng_color_mode_make(LCT_PALETTE, 8);
@@ -84,14 +129,13 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
             int bpp = lodepng_get_bpp(&mode);
             data = reinterpret_cast<uint8_t*>(calloc((w * h * bpp + 7) / 8, sizeof(uint8_t)));
 
-            lodepng_convert(data, buffer, &mode, &state.info_raw, w, h);
+            lodepng_convert(data, buffer, &mode, &state->info_raw, w, h);
 
             free(buffer);
             buffer = data;
         }
 
         free(png);
-        lodepng_state_cleanup(&state);
     }
     else
     {
@@ -99,7 +143,7 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
         if (premultiply)
         {
             int count = w * h;
-            uint32_t c,a,r,g,b;
+            uint32_t c, a, r, g, b;
             float m;
             for (int i = 0; i < count; ++i)
             {
@@ -146,7 +190,7 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
             minY = 0;
             maxX = w - 1;
             maxY = h - 1;
-            if (verbose) cout << "image is completely transparent: " << file << endl;
+            if (verbose) cout << "image is completely transparent!" << endl;
         }
     }
     else
@@ -176,7 +220,7 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
         data = reinterpret_cast<uint8_t*>(calloc(width * height, isIndexed ? sizeof(uint8_t) : sizeof(uint32_t)));
         frameX = -minX;
         frameY = -minY;
-        
+
         //Copy trimmed pixels over to the trimmed pixel array
         for (int y = minY; y <= maxY; ++y)
         {
@@ -190,7 +234,7 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
                     reinterpret_cast<uint32_t*>(data)[dstIndex] = reinterpret_cast<uint32_t*>(buffer)[srcIndex];
             }
         }
-        
+
         //Free the untrimmed pixels
         free(buffer);
     }
@@ -200,29 +244,8 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
     HashCombine(hashValue, static_cast<size_t>(width));
     HashCombine(hashValue, static_cast<size_t>(height));
     HashData(hashValue, reinterpret_cast<char*>(data), (isIndexed ? sizeof(uint8_t) : sizeof(uint32_t)) * width * height);
-}
-
-Bitmap::Bitmap(int width, int height, uint32_t* palette, int paletteSize)
-: width(width), height(height), palette(nullptr), paletteSize(paletteSize)
-{
-    if (this->paletteSize > 0)
-    {
-        this->palette = reinterpret_cast<uint32_t*>(calloc(paletteSize, sizeof(uint32_t)));
-
-        if (this->palette)
-        {
-			memcpy(this->palette, palette, this->paletteSize * sizeof(uint32_t));
-		}
-        else
-        {
-			cerr << "failed to allocate palette" << endl;
-			exit(EXIT_FAILURE);
-		}
-
-        data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint8_t)));
-    }
-    else
-        data = reinterpret_cast<uint8_t*>(calloc(width * height, sizeof(uint32_t)));
+    
+    return true;
 }
 
 Bitmap::~Bitmap()
@@ -258,7 +281,8 @@ void Bitmap::SaveAs(const string& file)
         state.encoder.auto_convert = 0;
 
         size_t pngSize;
-        result = lodepng_encode(&data, &pngSize, data, pw, ph, &state);
+        unsigned char* pngData = NULL;
+        result = lodepng_encode(&pngData, &pngSize, data, pw, ph, &state);
 
         if (result)
         {
@@ -266,10 +290,12 @@ void Bitmap::SaveAs(const string& file)
             exit(EXIT_FAILURE);
         }
 
-        if (lodepng_save_file(data, pngSize, file.data())) {
-            cout << "failed to save png: " << file << endl;
+        if (lodepng_save_file(pngData, pngSize, file.data())) {
+            cerr << "failed to save png: " << file << endl;
             exit(EXIT_FAILURE);
         }
+
+        free(pngData);
     }
     else
     {
@@ -284,7 +310,7 @@ void Bitmap::SaveAs(const string& file)
     }
 }
 
-void Bitmap::SetPaletteSlot(Bitmap* dst)
+void Bitmap::FindPaletteSlot(Bitmap* dst)
 {
     if (paletteSize != 256 || dst->paletteSize < 16)
         return;

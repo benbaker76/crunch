@@ -3,6 +3,10 @@
 *.lo
 *.o
 *.obj
+*.iobj
+
+# Debug
+*.ipdb
 
 # Precompiled Headers
 *.gch
@@ -41,3 +45,6 @@ linux/crunch
 
 # Other
 .vs/*
+*.recipe
+*.FileListAbsolute.txt
+*.vcxproj.filters
