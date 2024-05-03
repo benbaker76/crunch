@@ -102,14 +102,6 @@ void Packer::Pack(vector<Bitmap*>& bitmaps, bool verbose, bool unique, bool rota
 
 void Packer::SavePng(const string& file, uint32_t* palette, int paletteSize)
 {
-    // Sort the bitmaps by name, then frameIndex
-    stable_sort(bitmaps.begin(), bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
-        if (a->name != b->name) {
-            return a->name < b->name;
-        }
-        return a->frameIndex < b->frameIndex;
-        });
-
     Bitmap bitmap(width, height, palette, paletteSize);
 
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)

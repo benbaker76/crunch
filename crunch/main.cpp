@@ -302,7 +302,7 @@ static void LoadAseprite(const string& prefix, const string& path)
         unsigned int error = lodepng_encode(&pngData, &pngSize, image, ase->w, ase->h, &state);
 
         if (!error) {
-            bitmaps.push_back(new Bitmap(frameIndex, prefix + GetFileName(path), tagLabel, loopDirection, frame->duration_milliseconds, &state, pngData, pngSize, options.alpha, options.trim, options.verbose));
+            bitmaps.push_back(new Bitmap(frameIndex + 1, prefix + GetFileName(path), tagLabel, loopDirection, frame->duration_milliseconds, &state, pngData, pngSize, options.alpha, false, options.verbose));
         }
         else {
             printf("Error %u: %s\n", error, lodepng_error_text(error));
@@ -612,6 +612,17 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
         for (size_t i = 0; i < packers.size(); ++i)
             packers[i]->SaveBin(name + (noZero ? "" : to_string(i)), bin, options.texture_format, options.trim, options.rotate, NAME_LENGTH);
         bin.close();
+    }
+
+    for (size_t i = 0; i < packers.size(); ++i)
+    {
+        // Sort the bitmaps by name, then frameIndex
+        stable_sort(packers[i]->bitmaps.begin(), packers[i]->bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
+            if (a->name != b->name)
+                return a->name < b->name;
+
+            return a->frameIndex < b->frameIndex;
+        });
     }
 
     // Save the atlas xml
