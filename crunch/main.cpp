@@ -587,6 +587,17 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
     }
     StopTimer("saving atlas png");
 
+    for (size_t i = 0; i < packers.size(); ++i)
+    {
+        // Sort the bitmaps by name, label, then frameIndex
+        stable_sort(packers[i]->bitmaps.begin(), packers[i]->bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
+            if (a->name != b->name)
+                return a->name < b->name;
+
+            return a->frameIndex < b->frameIndex;
+            });
+    }
+
     StartTimer("saving atlas");
     // Save the atlas binary
     if (options.output_format == BIN)
@@ -612,17 +623,6 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
         for (size_t i = 0; i < packers.size(); ++i)
             packers[i]->SaveBin(name + (noZero ? "" : to_string(i)), bin, options.texture_format, options.trim, options.rotate, NAME_LENGTH);
         bin.close();
-    }
-
-    for (size_t i = 0; i < packers.size(); ++i)
-    {
-        // Sort the bitmaps by name, then frameIndex
-        stable_sort(packers[i]->bitmaps.begin(), packers[i]->bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
-            if (a->name != b->name)
-                return a->name < b->name;
-
-            return a->frameIndex < b->frameIndex;
-        });
     }
 
     // Save the atlas xml
