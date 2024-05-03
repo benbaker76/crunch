@@ -34,8 +34,17 @@
 
 using namespace std;
 
+struct Point
+{
+    int x;
+    int y;
+    int dupID;
+    bool rot;
+};
+
 struct Bitmap
 {
+    Point pos;
     int frameIndex;
     string name;
     string label;

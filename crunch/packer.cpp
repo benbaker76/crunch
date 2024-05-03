@@ -43,60 +43,58 @@ Packer::Packer(int width, int height, int pad)
 void Packer::Pack(vector<Bitmap*>& bitmaps, bool verbose, bool unique, bool rotate)
 {
     MaxRectsBinPack packer(width, height);
-    
+
     int ww = 0;
     int hh = 0;
     while (!bitmaps.empty())
     {
         auto bitmap = bitmaps.back();
-        
+
         if (verbose)
             cout << '\t' << bitmaps.size() << ": " << bitmap->name << endl;
-        
+
         //Check to see if this is a duplicate of an already packed bitmap
         if (unique)
         {
             auto di = dupLookup.find(bitmap->hashValue);
             if (di != dupLookup.end() && bitmap->Equals(this->bitmaps[di->second]))
             {
-                Point p = points[di->second];
-                p.dupID = di->second;
-                points.push_back(p);
-                this->bitmaps.push_back(bitmap);
+                Bitmap* dupBitmap = this->bitmaps[di->second];
+                dupBitmap->pos = bitmap->pos;
                 bitmaps.pop_back();
                 continue;
             }
         }
-        
+
         //If it's not a duplicate, pack it into the atlas
         {
             Rect rect = packer.Insert(bitmap->width + pad, bitmap->height + pad, rotate, MaxRectsBinPack::RectBestShortSideFit);
-            
+
             if (rect.width == 0 || rect.height == 0)
                 break;
-            
+
             if (unique)
-                dupLookup[bitmap->hashValue] = static_cast<int>(points.size());
-            
+                dupLookup[bitmap->hashValue] = static_cast<int>(this->bitmaps.size());
+
             //Check if we rotated it
             Point p;
             p.x = rect.x;
             p.y = rect.y;
             p.dupID = -1;
             p.rot = rotate && bitmap->width != (rect.width - pad);
-            
-            points.push_back(p);
+
+            bitmap->pos = p;
             this->bitmaps.push_back(bitmap);
             bitmaps.pop_back();
-            
+
             ww = max(rect.x + rect.width, ww);
             hh = max(rect.y + rect.height, hh);
         }
     }
-    
+
     while (width / 2 >= ww)
         width /= 2;
-    while( height / 2 >= hh)
+    while (height / 2 >= hh)
         height /= 2;
 }
 
@@ -106,14 +104,14 @@ void Packer::SavePng(const string& file, uint32_t* palette, int paletteSize)
 
     for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
     {
-        if (points[i].dupID < 0)
+        if (bitmaps[i]->pos.dupID < 0)
         {
             bitmap.FindPaletteSlot(bitmaps[i]);
 
-            if (points[i].rot)
-                bitmap.CopyPixelsRot(bitmaps[i], points[i].x, points[i].y);
+            if (bitmaps[i]->pos.rot)
+                bitmap.CopyPixelsRot(bitmaps[i], bitmaps[i]->pos.x, bitmaps[i]->pos.y);
             else
-                bitmap.CopyPixels(bitmaps[i], points[i].x, points[i].y);
+                bitmap.CopyPixels(bitmaps[i], bitmaps[i]->pos.x, bitmaps[i]->pos.y);
         }
     }
     bitmap.SaveAs(file);
@@ -132,8 +130,8 @@ void Packer::SaveXml(const string& name, ofstream& xml, int format, bool trim, b
         xml << "l=\"" << bitmaps[i]->label << "\" ";
         xml << "ld=\"" << bitmaps[i]->loopDirection << "\" ";
         xml << "d=\"" << bitmaps[i]->duration << "\" ";
-        xml << "x=\"" << points[i].x << "\" ";
-        xml << "y=\"" << points[i].y << "\" ";
+        xml << "x=\"" << bitmaps[i]->pos.x << "\" ";
+        xml << "y=\"" << bitmaps[i]->pos.y << "\" ";
         xml << "w=\"" << bitmaps[i]->width << "\" ";
         xml << "h=\"" << bitmaps[i]->height << "\" ";
         if (trim)
@@ -144,7 +142,7 @@ void Packer::SaveXml(const string& name, ofstream& xml, int format, bool trim, b
             xml << "fh=\"" << bitmaps[i]->frameH << "\" ";
         }
         if (rotate)
-            xml << "r=\"" << (points[i].rot ? 1 : 0) << "\" ";
+            xml << "r=\"" << (bitmaps[i]->pos.rot ? 1 : 0) << "\" ";
         xml << "ps=\"" << bitmaps[i]->paletteSlot << "\" ";
         xml << "/>" << endl;
     }
@@ -165,8 +163,8 @@ void Packer::SaveBin(const string& name, ofstream& bin, int format, bool trim, b
         WriteString(bin, bitmaps[i]->label, length);
         WriteByte(bin, bitmaps[i]->loopDirection);
         WriteShort(bin, (int16_t)bitmaps[i]->duration);
-        WriteShort(bin, (int16_t)points[i].x);
-        WriteShort(bin, (int16_t)points[i].y);
+        WriteShort(bin, (int16_t)bitmaps[i]->pos.x);
+        WriteShort(bin, (int16_t)bitmaps[i]->pos.y);
         WriteShort(bin, (int16_t)bitmaps[i]->width);
         WriteShort(bin, (int16_t)bitmaps[i]->height);
         if (trim)
@@ -177,7 +175,7 @@ void Packer::SaveBin(const string& name, ofstream& bin, int format, bool trim, b
             WriteShort(bin, (int16_t)bitmaps[i]->frameH);
         }
         if (rotate)
-            WriteByte(bin, points[i].rot ? 1 : 0);
+            WriteByte(bin, bitmaps[i]->pos.rot ? 1 : 0);
         WriteByte(bin, bitmaps[i]->paletteSlot);
         std::cout << "Saved " << bitmaps[i]->name << " slot " << bitmaps[i]->paletteSlot << std::endl;
     }
@@ -198,8 +196,8 @@ void Packer::SaveJson(const string& name, ofstream& json, int format, bool trim,
         json << "\"l\":\"" << bitmaps[i]->label << "\", ";
         json << "\"ld\":" << bitmaps[i]->loopDirection << ", ";
         json << "\"d\":" << bitmaps[i]->duration << ", ";
-        json << "\"x\":" << points[i].x << ", ";
-        json << "\"y\":" << points[i].y << ", ";
+        json << "\"x\":" << bitmaps[i]->pos.x << ", ";
+        json << "\"y\":" << bitmaps[i]->pos.y << ", ";
         json << "\"w\":" << bitmaps[i]->width << ", ";
         json << "\"h\":" << bitmaps[i]->height;
         if (trim)
@@ -210,7 +208,7 @@ void Packer::SaveJson(const string& name, ofstream& json, int format, bool trim,
             json << "\"fh\":" << bitmaps[i]->frameH;
         }
         if (rotate)
-            json << ", \"r\":" << (points[i].rot ? "true" : "false");
+            json << ", \"r\":" << (bitmaps[i]->pos.rot ? "true" : "false");
         json << ", \"ps\":" << bitmaps[i]->paletteSlot;
         json << " }";
         if(i != bitmaps.size() -1)

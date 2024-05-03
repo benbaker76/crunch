@@ -589,7 +589,7 @@ static int Pack(size_t newHash, string &outputDir, string &name, vector<string> 
 
     for (size_t i = 0; i < packers.size(); ++i)
     {
-        // Sort the bitmaps by name, label, then frameIndex
+        // Sort the bitmaps by name then frameIndex
         stable_sort(packers[i]->bitmaps.begin(), packers[i]->bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
             if (a->name != b->name)
                 return a->name < b->name;

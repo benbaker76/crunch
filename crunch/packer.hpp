@@ -34,14 +34,6 @@
 
 using namespace std;
 
-struct Point
-{
-    int x;
-    int y;
-    int dupID;
-    bool rot;
-};
-
 struct Packer
 {
     int width;
@@ -49,7 +41,6 @@ struct Packer
     int pad;
     
     vector<Bitmap*> bitmaps;
-    vector<Point> points;
     unordered_map<size_t, int> dupLookup;
     
     Packer(int width, int height, int pad);
